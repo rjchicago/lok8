@@ -62,7 +62,7 @@ class KubernetesOperator {
         .filter(key => key.startsWith('topology.kubernetes.io'))
         .map(key => {
           return {
-            labelKey: [key],
+            labelKey: key,
             labelValue: node.body.metadata.labels[key] 
           };
         });
