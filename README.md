@@ -29,3 +29,10 @@ Enable `LoK8` at the **Pod** level by applying the `LoK8` annotation on each Pod
       annotations:
         lok8.io/enabled: 'true'
 ```
+
+### Related
+
+Related Kubernetes features:
+
+* [Topology Aware Routing](https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/)
+* [Traffic Distribution](https://kubernetes.io/docs/concepts/services-networking/service/#traffic-distribution)
