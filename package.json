@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/main.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node src/main.js",
     "watch": "node_modules/.bin/nodemon src/main.js",
     "debug": "node_modules/.bin/nodemon --inspect=0.0.0.0:9223 src/main.js"
   },
