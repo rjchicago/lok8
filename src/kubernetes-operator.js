@@ -12,13 +12,11 @@ class KubernetesOperator {
   }
 
   run = async () => {
-    while (true) {
-      this.k8s.watch(
-        '/api/v1/pods',
-        this.handlePodChange,
-        (err) => console.error(`Error watching pods: ${err}`)
-      );
-    }
+    this.k8s.watch(
+      '/api/v1/pods',
+      this.handlePodChange,
+      (err) => console.error(`Error watching pods: ${err}`)
+    );
   }
 
   handlePodChange = async (type, pod) => {
