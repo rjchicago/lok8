@@ -23,18 +23,19 @@ class KubernetesOperator {
     try {
       const { metadata: { name: podName, namespace, labels: podLabels, annotations: podAnnotation }, spec: { nodeName } } = pod;
       if (!nodeName || !['ADDED', 'MODIFIED'].includes(type)) return;
-      if (globalMode || (podAnnotation && podAnnotation[podAnnotationKey] === podAnnotationValue)) {
-        const nodeLabels = await this.k8s.getNodeLabels(nodeName, labelRegex);
-        Object.entries(nodeLabels).forEach(async ([labelKey, labelValue]) => {
-          if (podLabels && podLabels[labelKey] === labelValue) {
-            console.debug(`SKIPPING: ${podName} » pod already has label ${labelKey}=${labelValue}`);
-            return;
-          }
-          const payload = { metadata: { labels: { [labelKey]: labelValue } } }
-          console.info(`PATCH: ${podName} » ${JSON.stringify(payload)}`);
-          await this.k8s.patchNamespacedPod(podName, namespace, payload);
-        });
-      }
+      if (!(globalMode || (podAnnotation && podAnnotation[podAnnotationKey] === podAnnotationValue))) return;
+      // loop through node labels and patch pod with matching labels
+      const nodeLabels = await this.k8s.getNodeLabels(nodeName, labelRegex);
+      Object.entries(nodeLabels).forEach(async ([labelKey, labelValue]) => {
+        // skip if pod already has label
+        if (podLabels && podLabels[labelKey] === labelValue) {
+          console.debug(`SKIPPING: ${podName} » pod already has label ${labelKey}=${labelValue}`);
+          return;
+        }
+        const payload = { metadata: { labels: { [labelKey]: labelValue } } }
+        console.info(`PATCH: ${podName} » ${JSON.stringify(payload)}`);
+        await this.k8s.patchNamespacedPod(podName, namespace, payload);
+      });
     }
     catch(err) {
       console.error('Error handling pod change:', err);
