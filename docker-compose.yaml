@@ -5,7 +5,6 @@ services:
       context: .
       target: development
     environment:
-      NODE_ENV: development
       KUBECONFIG: /.kube/config.yaml
       GLOBAL_MODE: false
     volumes:
@@ -13,9 +12,6 @@ services:
       - ./src:/usr/app/src
       - ./.kube/config.yaml:/.kube/config.yaml
     ports:
-      - "3001:3001"
       - "9223:9223"
     expose:
       - "9223"
-    entrypoint: ["npm", "run", "debug"]
-    
