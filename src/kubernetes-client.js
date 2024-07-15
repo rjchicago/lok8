@@ -2,18 +2,48 @@ const k8s = require('@kubernetes/client-node');
 
 class KubernetesClient {
   constructor() {
-    this.kc = new k8s.KubeConfig();
-    this.loadConfig();
-    this.watch    = new k8s.Watch(this.kc);
-    this.coreApi  = this.kc.makeApiClient(k8s.CoreV1Api);
+    this.config = new k8s.KubeConfig();
+    process.env.KUBECONFIG 
+      ? this.config.loadFromFile(process.env.KUBECONFIG) 
+      : this.config.loadFromCluster();
+    this.watchApi = new k8s.Watch(this.config);
+    this.coreApi = this.config.makeApiClient(k8s.CoreV1Api);
   }
 
-  loadConfig = () => {
-    if (process.env.KUBECONFIG) {
-      this.kc.loadFromFile(process.env.KUBECONFIG);
-    } else {
-      this.kc.loadFromCluster();
-    }
+  watch = async (path, handler, onError) => {
+    await this.watchApi.watch(
+      path,
+      {},
+      handler,
+      onError,
+    );
+  }
+
+  patchNamespacedPod = async (podName, namespace, payload) => {
+    // https://github.com/kubernetes-client/javascript/blob/master/examples/patch-example.js
+    // https://github.com/Agirish/kubernetes-client-java/blob/master/kubernetes/docs/CoreV1Api.md#patchNamespacedPod
+    const options = { headers: { 'Content-type': 'application/merge-patch+json' } };
+    await this.coreApi.patchNamespacedPod(
+      podName,
+      namespace,
+      payload,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      options
+    );
+  }
+
+  getNodeLabels = async (nodeName, regexMatch) => {
+    const node = await this.coreApi.readNode(nodeName);
+    return Object.entries(node.body.metadata.labels || {})
+      .filter(([key]) => key.match(regexMatch))
+      .reduce((obj, [key, value]) => {
+        obj[key] = value;
+        return obj;
+      }, {});
   }
 }
 

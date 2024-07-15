@@ -2,11 +2,11 @@
   "name": "lok8",
   "version": "1.0.0",
   "description": "",
-  "main": "src/server.js",
+  "main": "src/main.js",
   "scripts": {
     "start": "node src/server.js",
-    "watch": "node_modules/.bin/nodemon src/server.js",
-    "debug": "node_modules/.bin/nodemon --inspect=0.0.0.0:9223 src/server.js"
+    "watch": "node_modules/.bin/nodemon src/main.js",
+    "debug": "node_modules/.bin/nodemon --inspect=0.0.0.0:9223 src/main.js"
   },
   "dependencies": {
     "@kubernetes/client-node": "^0.21.0"

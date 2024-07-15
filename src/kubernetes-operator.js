@@ -1,75 +1,43 @@
-const KubernetesClient = new require('./kubernetes-client');
+const KubernetesClient = require('./kubernetes-client');
 
-const GLOBAL_MODE = process.env.GLOBAL_MODE === "true" ? true : false;
-const podAnnotation = 'lok8.io/enabled';
+const podAnnotationKey = 'lok8.io/enabled';
+const podAnnotationValue = 'true';
+const globalMode = process.env.GLOBAL_MODE === 'true' ? true : false;
+const labelRegex = new RegExp(`${process.env.LABEL_REGEX || '^topology\\.kubernetes\\.io\\/.+$'}`);
+console.log(`LABEL_REGEX: ${labelRegex}`);
 
 class KubernetesOperator {
   constructor() {
-    this.kc = new KubernetesClient();
+    this.k8s = new KubernetesClient();
   }
 
-  watchPods = async () => {
-    await this.kc.watch.watch(
+  run = async () => {
+    this.k8s.watch(
       '/api/v1/pods',
-      {},
       this.handlePodChange,
-      (err) => console.error(err),
+      (err) => console.error(err)
     );
   }
 
   handlePodChange = async (type, pod) => {
-    if (!pod.spec.nodeName || !['ADDED', 'MODIFIED'].includes(type)) return;
-    if (GLOBAL_MODE || (pod.metadata.annotations && pod.metadata.annotations[podAnnotation] === 'true')) {
-      const labels = await this.getNodeTopologyLabels(pod.spec.nodeName);
-      labels.forEach(async ({labelKey, labelValue}) => {
-        if (pod.metadata.labels && pod.metadata.labels[labelKey] === labelValue) {
-          console.debug(`SKIPPING: ${pod.metadata.name} » pod already has label ${labelKey}=${labelValue}`);
-          return;
-        }
-        await this.applyLabelToPod(pod.metadata.name, pod.metadata.namespace, labelKey, labelValue);
-      });
-    }
-  }
-
-  applyLabelToPod = async (podName, namespace, labelKey, labelValue) => {
-    const payload = { metadata: { labels: { [labelKey]: labelValue } } }
-    const options = { headers: { 'Content-type': 'application/merge-patch+json' } };
-    console.info(`PATCH: ${podName} » label ${labelKey}=${labelValue}`);
     try {
-      // https://github.com/kubernetes-client/javascript/blob/master/examples/patch-example.js
-      // https://github.com/Agirish/kubernetes-client-java/blob/master/kubernetes/docs/CoreV1Api.md#patchNamespacedPod
-      await this.kc.coreApi.patchNamespacedPod(
-        podName,
-        namespace,
-        payload,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        options
-      );
-    }
-    catch (err) {
-      console.error('Error applying label to pod:', err);
-    }
-  }
-
-  getNodeTopologyLabels = async (nodeName) => {
-    try {
-      const node = await this.kc.coreApi.readNode(nodeName);
-      return Object.keys(node.body.metadata.labels)
-        .filter(key => key.startsWith('topology.kubernetes.io'))
-        .map(key => {
-          return {
-            labelKey: key,
-            labelValue: node.body.metadata.labels[key] 
-          };
+      const { metadata: { name: podName, namespace, labels: podLabels, annotations: podAnnotation }, spec: { nodeName } } = pod;
+      if (!nodeName || !['ADDED', 'MODIFIED'].includes(type)) return;
+      if (globalMode || (podAnnotation && podAnnotation[podAnnotationKey] === podAnnotationValue)) {
+        const nodeLabels = await this.k8s.getNodeLabels(nodeName, labelRegex);
+        Object.entries(nodeLabels).forEach(async ([labelKey, labelValue]) => {
+          if (podLabels && podLabels[labelKey] === labelValue) {
+            console.debug(`SKIPPING: ${podName} » pod already has label ${labelKey}=${labelValue}`);
+            return;
+          }
+          const payload = { metadata: { labels: { [labelKey]: labelValue } } }
+          console.info(`PATCH: ${podName} » ${JSON.stringify(payload)}`);
+          await this.k8s.patchNamespacedPod(podName, namespace, payload);
         });
+      }
     }
-    catch (err) {
-      console.error('Error getting node labels:', err);
-      return [];
+    catch(err) {
+      console.error('Error handling pod change:', err);
     }
   }
 }  
